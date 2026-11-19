@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CS2 Round Review</title>
+  <meta name="description" content="Upload a CS2 demo, replay every round, and find the moments that cost your team the most.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">◆</span> CS2 Round Review <span class="beta mono">phase 1</span></div>
+    <div class="topbar-right mono" id="topbar-match"></div>
+  </header>
+
+  <!-- ───────────── Upload + library ───────────── -->
+  <main id="home" class="home">
+    <section class="intro">
+      <h1>Find the moments that<br>cost you the round.</h1>
+      <p>Drop in a CS2 demo from FACEIT. Every round gets replayed on a 2D map with a live win-probability line, and your biggest negative swings are pulled out and ranked.</p>
+    </section>
+
+    <section class="upload-card">
+      <div class="seg mono" role="radiogroup" aria-label="Match type">
+        <button type="button" role="radio" aria-checked="true" data-tag="pug">PUG</button>
+        <button type="button" role="radio" aria-checked="false" data-tag="official">Official / LAN</button>
+      </div>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".dem,.zst,.gz,.bz2" hidden>
+        <span class="drop-icon">⤓</span>
+        <span class="drop-title">Drop a demo here, or click to choose</span>
+        <span class="drop-sub mono">.dem · .dem.zst · .dem.gz &nbsp;—&nbsp; stays on your computer, analyzed in this browser</span>
+      </label>
+      <ol class="progress mono" id="progress" hidden></ol>
+      <p class="error" id="error" hidden></p>
+    </section>
+
+    <section class="library" id="library-wrap" hidden>
+      <div class="lib-head">
+        <h2 class="mono">/ your matches</h2>
+        <div class="seg small mono" id="lib-filter">
+          <button type="button" aria-pressed="true" data-f="all">All</button>
+          <button type="button" aria-pressed="false" data-f="pug">PUG</button>
+          <button type="button" aria-pressed="false" data-f="official">Official</button>
+        </div>
+      </div>
+      <div class="lib-stats" id="lib-stats"></div>
+      <ul class="lib-list" id="library"></ul>
+      <p class="lib-note mono">Saved in this browser only. Re-open a match by dropping its demo again.</p>
+      <p class="lib-note mono">Demo parsing by <a href="https://github.com/LaihoE/demoparser" target="_blank" rel="noopener">demoparser2</a> (MIT) · decompression by fzstd (MIT).</p>
+    </section>
+  </main>
+
+  <!-- ───────────── Match view ───────────── -->
+  <main id="match" class="match" hidden>
+    <section class="match-head">
+      <div class="score">
+        <span class="team ct" id="team-a">CT</span>
+        <span class="score-num mono" id="score">0 : 0</span>
+        <span class="team t" id="team-b">T</span>
+      </div>
+      <div class="match-meta mono" id="match-meta"></div>
+      <label class="me-pick mono">You are
+        <select id="me"></select>
+      </label>
+    </section>
+
+    <section class="rounds" id="rounds" aria-label="Rounds"></section>
+
+    <section class="stage">
+      <div class="replay">
+        <div class="replay-top mono">
+          <span id="round-label">Round 1</span>
+          <span id="alive-label"></span>
+          <span id="clock">1:55</span>
+        </div>
+        <canvas id="map" width="900" height="900"></canvas>
+        <div class="controls">
+          <button type="button" id="play" class="mono" aria-label="Play">▶</button>
+          <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Round timeline">
+          <select id="speed" class="mono" aria-label="Playback speed">
+            <option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option>
+          </select>
+        </div>
+        <div class="wp">
+          <div class="wp-head mono"><span>Win probability — <b id="wp-side">your team</b></span><span id="wp-now">50%</span></div>
+          <svg id="wp-chart" viewBox="0 0 1000 160" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div class="panel">
+          <h3 class="mono">/ your costliest moments</h3>
+          <ol class="mistakes" id="mistakes"></ol>
+        </div>
+        <div class="panel">
+          <h3 class="mono">/ round feed</h3>
+          <ul class="feed" id="feed"></ul>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel table-wrap">
+      <h3 class="mono">/ scoreboard · win probability added</h3>
+      <table class="board mono" id="board"></table>
+      <p class="model-note">Win probability uses a hand-tuned baseline model (players alive, equipment, bomb, time). It's a solid first read, not gospel; phase 2 trains it on real matches.</p>
+    </section>
+
+    <div class="match-foot">
+      <button type="button" class="ghost mono" id="back-home">← Upload another demo</button>
+    </div>
+  </main>
+
+  <script src="analysis.js"></script>
+  <script src="app.js"></script>
+  <script src="../../back.js" defer></script>
+</body>
+</html>

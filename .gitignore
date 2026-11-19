@@ -1,1 +1,8 @@
 .claude/
+_probe/
+
+# CS2 demos are large and personal — never commit them
+*.dem
+*.zst
+*.gz
+*.bz2

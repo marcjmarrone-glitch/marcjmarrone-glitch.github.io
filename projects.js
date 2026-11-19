@@ -21,6 +21,13 @@ const SITE = {
 };
 
 const BUILDS = [
+  {
+    slug: "cs2-review",
+    title: "CS2 Round Review",
+    blurb: "Drop in a FACEIT demo and replay every round on a 2D map with a live win-probability line. Your costliest deaths get found and ranked.",
+    tags: ["cs2", "tool"],
+    date: "2026-11",
+  },
   // {
   //   slug: "my-first-build",           // folder name: projects/my-first-build/
   //   title: "My First Build",
