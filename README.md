@@ -1,45 +1,25 @@
-# My Projects Homepage
+# claasic
 
-A simple, fast portfolio site hosted for free on GitHub Pages.
+Marc Marrone's workshop: everything we build, in one place, ready to open in the browser.
 
-## Files
+Live at **https://marcjmarrone-glitch.github.io**
 
-| File | What it is |
-|---|---|
-| `projects.js` | **The only file you normally edit.** Your name, links, and project list. |
-| `index.html` | Page structure |
-| `style.css` | Look and feel (light and dark mode follow your system setting) |
-| `main.js` | Builds the page from `projects.js` |
+## How it's organized
 
-## Publish it (one-time setup)
-
-1. Sign in at https://github.com and create a **new repository** named exactly
-   `marcjmarrone-glitch.github.io`. Make it **Public**.
-2. Upload these files: on the new repo's page, click **"uploading an existing file"**,
-   drag in `index.html`, `style.css`, `main.js`, `projects.js`, `README.md`, then **Commit changes**.
-3. Go to **Settings → Pages**. Under "Build and deployment", set Source to
-   **Deploy from a branch**, Branch to **main** / **(root)**, and click Save.
-4. After a minute or two your site is live at `https://marcjmarrone-glitch.github.io`.
-
-Or with git from a terminal:
-
-```bash
-git init
-git add .
-git commit -m "First version of my homepage"
-git branch -M main
-git remote add origin https://github.com/marcjmarrone-glitch/marcjmarrone-glitch.github.io.git
-git push -u origin main
+```
+index.html, style.css, main.js   the homepage (no need to edit)
+projects.js                      your info + the list of builds  ← edit this
+back.js                          "← claasic" button for build pages
+projects/<slug>/index.html       each build lives in its own folder
 ```
 
-## Add a project
+## Adding a build
 
-Open `projects.js`, copy a `{ ... }` block inside `PROJECTS`, and fill in the
-title, description, tags, date, and links. Commit the change and the site updates
-itself within a minute or two.
-
-For a screenshot, add an `images/` folder, put the image there, and set
-`image: "images/your-file.png"` on the project.
+1. Put the build in `projects/<slug>/` with an `index.html` entry point.
+   Add `<script src="../../back.js" defer></script>` so visitors can get back home.
+2. Add an entry at the **end** of `BUILDS` in `projects.js` (slug, title, blurb, tags, date).
+   The homepage card shows a live preview of the build automatically; set `image` to use a screenshot instead.
+3. Commit and push. The site updates in about a minute.
 
 ## Preview locally
 

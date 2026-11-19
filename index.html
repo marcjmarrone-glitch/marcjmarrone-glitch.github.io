@@ -3,29 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Projects</title>
-  <meta name="description" content="A collection of things I've built.">
+  <title>claasic</title>
+  <meta name="description" content="Things Marc Marrone makes: apps, games, tools and experiments you can open and try in your browser.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="wrap hero">
-    <p class="eyebrow">Hi, I'm</p>
-    <h1 id="site-name">Your Name</h1>
-    <p class="tagline" id="site-tagline">I build small, useful things. Here's what I've made so far.</p>
-    <nav class="links" id="site-links"></nav>
+  <nav class="nav wrap">
+    <a class="logo" id="logo" href="#top">claasic<span class="dot">.</span></a>
+    <div class="nav-links mono">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a id="nav-github" href="#" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <header class="hero wrap" id="top">
+    <p class="kicker mono"><span class="pulse" aria-hidden="true"></span><span id="status">Currently building</span></p>
+    <h1 class="display" id="handle">claasic</h1>
+    <p class="lede"><strong id="real-name">Marc Marrone</strong><span id="tagline"></span></p>
+    <dl class="stats mono">
+      <div><dt>Builds</dt><dd id="stat-count">00</dd></div>
+      <div><dt>Latest</dt><dd id="stat-latest">—</dd></div>
+      <div><dt>Since</dt><dd id="stat-since">2026</dd></div>
+    </dl>
   </header>
 
-  <main class="wrap">
-    <div class="section-head">
-      <h2>Projects</h2>
-      <div class="filters" id="filters" role="toolbar" aria-label="Filter by tag"></div>
-    </div>
-    <div class="grid" id="projects"></div>
-    <p class="empty" id="empty" hidden>No projects yet. Add one in <code>projects.js</code>.</p>
+  <main>
+    <section class="wrap" id="work">
+      <div class="section-head">
+        <h2 class="mono">/ work</h2>
+        <div class="filters mono" id="filters" role="toolbar" aria-label="Filter by tag"></div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section class="wrap about" id="about">
+      <h2 class="mono">/ about</h2>
+      <p id="about-text"></p>
+    </section>
   </main>
 
-  <footer class="wrap footer">
-    <span id="year"></span> · Built with plain HTML, hosted on GitHub Pages
+  <footer class="wrap footer mono">
+    <span id="copyright"></span>
+    <span class="footer-links" id="footer-links"></span>
   </footer>
 
   <script src="projects.js"></script>

@@ -1,36 +1,33 @@
 // ─────────────────────────────────────────────────────────────
-//  Edit this file to update your homepage.
-//  To add a project, copy one { ... } block in PROJECTS and fill it in.
+//  This file runs the homepage. Edit it to change your info or
+//  add a build.
+//
+//  Each build lives in its own folder:  projects/<slug>/index.html
+//  Then add an entry to BUILDS below. Oldest first: the order here
+//  sets the build numbers (#001, #002, ...). The page shows newest first.
 // ─────────────────────────────────────────────────────────────
 
 const SITE = {
-  name: "Marc 'claasic' Marrone",
-  tagline: "I build small, useful things. Here's what I've made so far.",
+  handle: "claasic",
+  name: "Marc Marrone",
+  tagline: " makes things: apps, games, tools and experiments. Everything here runs in your browser, so click one and try it.",
+  status: "Currently building",
+  since: "2026",
+  about: "This is my workshop: a running log of everything I build. Some of it is useful, some of it is just for fun, and all of it opens right here with nothing to install.",
   links: [
     { label: "GitHub", url: "https://github.com/marcjmarrone-glitch" },
-    // { label: "LinkedIn", url: "https://linkedin.com/in/..." },
     // { label: "Email", url: "mailto:you@example.com" },
   ],
 };
 
-const PROJECTS = [
-  {
-    title: "This homepage",
-    description: "The site you're looking at — a simple, fast portfolio hosted free on GitHub Pages.",
-    emoji: "🏠",             // shown when there's no image
-    // image: "images/homepage.png", // optional screenshot (put files in an images/ folder)
-    tags: ["web", "html"],
-    date: "2026-11",
-    demo: "https://marcjmarrone-glitch.github.io", // live link (leave "" to hide)
-    code: "https://github.com/marcjmarrone-glitch/marcjmarrone-glitch.github.io",
-  },
+const BUILDS = [
   // {
-  //   title: "Next project",
-  //   description: "One or two sentences about what it does.",
-  //   emoji: "🚀",
-  //   tags: ["python"],
-  //   date: "2026-12",
-  //   demo: "https://...",
-  //   code: "https://github.com/marcjmarrone-glitch/next-project",
+  //   slug: "my-first-build",           // folder name: projects/my-first-build/
+  //   title: "My First Build",
+  //   blurb: "One or two sentences on what it is and why it's fun.",
+  //   tags: ["game"],
+  //   date: "2026-11",
+  //   // image: "projects/my-first-build/cover.png",  // optional; otherwise a live preview is shown
+  //   // url: "https://...",                          // optional; use instead of slug for things hosted elsewhere
   // },
 ];
