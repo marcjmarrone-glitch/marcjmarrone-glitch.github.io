@@ -218,3 +218,10 @@ button, select, input { font: inherit; color: inherit; }
 .why-h.try { color: var(--accent); }
 .why ul { margin: 0; padding-left: 16px; font-size: .82rem; display: grid; gap: 3px; }
 .why ul.try li::marker { color: var(--accent); }
+
+/* ── Reopen saved matches */
+.lib-list li.openable { cursor: pointer; transition: border-color .15s; }
+.lib-list li.openable:hover { border-color: var(--accent); }
+.lib-list li.openable:hover b { color: var(--accent); }
+.lib-list li.loading { opacity: .5; pointer-events: none; }
+.lib-list li.loading b::after { content: "  opening…"; font-family: var(--mono); font-size: .7rem; color: var(--muted); font-weight: 400; }

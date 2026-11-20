@@ -112,6 +112,7 @@
       const res = processMatch(match);
       await DB.put("matches", res.record);
       await DB.put("data", res.rows);
+      try { await DB.put("full", { id: match.id, blob: await pack(match) }); } catch {}   // so it can be reopened later
       job.state = "done"; job.summary = `${match.map.replace(/^de_/, "")} · ${res.record.scoreText}`;
       if (single) { prog.hidden = true; queue.splice(queue.indexOf(job), 1); renderQueue(); await openMatch(match, res.analyses); }
     } catch (err) {
@@ -179,11 +180,12 @@
     open() {
       return new Promise((res) => {
         try {
-          const r = indexedDB.open("cs2-review", 2);
+          const r = indexedDB.open("cs2-review", 3);
           r.onupgradeneeded = () => {
             const db = r.result;
             if (!db.objectStoreNames.contains("matches")) db.createObjectStore("matches", { keyPath: "id" });
             if (!db.objectStoreNames.contains("data")) db.createObjectStore("data", { keyPath: "id" });
+            if (!db.objectStoreNames.contains("full")) db.createObjectStore("full", { keyPath: "id" });   // whole parsed match, gzipped
           };
           r.onsuccess = () => { this.db = r.result; res(); };
           r.onerror = () => res();
@@ -193,8 +195,29 @@
     tx(name, mode) { return this.db && this.db.transaction(name, mode).objectStore(name); },
     all(name = "matches") { return new Promise((res) => { const s = this.tx(name, "readonly"); if (!s) return res([]); const q = s.getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); }); },
     put(name, v) { return new Promise((res) => { const s = this.tx(name, "readwrite"); if (!s) return res(); const q = s.put(v); q.onsuccess = q.onerror = () => res(); }); },
-    del(id) { for (const n of ["matches", "data"]) { const s = this.tx(n, "readwrite"); if (s) s.delete(id); } },
+    get(name, id) { return new Promise((res) => { const s = this.tx(name, "readonly"); if (!s) return res(null); const q = s.get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); },
+    keys(name) { return new Promise((res) => { const s = this.tx(name, "readonly"); if (!s) return res([]); const q = s.getAllKeys(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); }); },
+    del(id) { for (const n of ["matches", "data", "full"]) { const s = this.tx(n, "readwrite"); if (s) s.delete(id); } },
   };
+
+  // Whole matches are stored gzipped (~10× smaller) so past demos reopen without the file
+  async function pack(obj) {
+    const stream = new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream("gzip"));
+    return await new Response(stream).blob();
+  }
+  async function unpack(blob) {
+    const stream = blob.stream().pipeThrough(new DecompressionStream("gzip"));
+    return JSON.parse(await new Response(stream).text());
+  }
+  async function openSaved(id, li) {
+    if (li) li.classList.add("loading");
+    try {
+      const row = await DB.get("full", id);
+      if (!row) throw new Error("This match wasn't saved in full. Drop its demo again to open it.");
+      await openMatch(await unpack(row.blob));
+    } catch (err) { showError(err.message); window.scrollTo(0, 0); }
+    if (li) li.classList.remove("loading");
+  }
   let libFilter = "all";
   document.querySelectorAll("#lib-filter button").forEach((b) => (b.onclick = () => {
     libFilter = b.dataset.f;
@@ -232,8 +255,11 @@
     $("lib-stats").replaceChildren(...stats.map(([k, v]) => { const d = el("div", "stat"); d.append(el("div", "k", k), el("div", "v", String(v))); return d; }));
     renderStyle(st, mine.length, baselineFrom(all));
 
+    const saved = new Set(await DB.keys("full"));
     $("library").replaceChildren(...list.map((m) => {
       const li = el("li");
+      if (saved.has(m.id)) { li.classList.add("openable"); li.title = "Open this match"; li.onclick = () => openSaved(m.id, li); }
+      else li.title = "Saved before reopening was added. Drop its demo again to open it.";
       li.append(el("span", "tag", TAGS[m.tag] || "PUG"));
       const me = meIn(m);
       const mid = el("span");
@@ -248,7 +274,7 @@
       } else if (m.result) cls = m.result === "W" ? "res-w" : m.result === "L" ? "res-l" : "";
       li.append(el("span", "mono " + cls, scoreText));
       const del = el("button", "del", "×"); del.title = "Remove from history";
-      del.onclick = () => { DB.del(m.id); renderLibrary(); };
+      del.onclick = (e) => { e.stopPropagation(); DB.del(m.id); renderLibrary(); };
       li.append(del);
       return li;
     }));
@@ -836,5 +862,5 @@
   function prettyWeapon(w) { return (w || "").replace(/^weapon_/, "").replace(/_/g, " ").replace(/^knife.*/, "knife"); }
   function reasonText(r) { return ({ 1: "bomb exploded", 7: "bomb defused", 8: "Ts eliminated", 9: "CTs eliminated", 12: "time ran out", 17: "surrender" })[r] || "round over"; }
 
-  DB.open().then(renderLibrary);
+  DB.open().then(() => { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {} renderLibrary(); });
 })();
