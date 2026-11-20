@@ -12,7 +12,7 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">◆</span> CS2 Round Review <span class="beta mono">phase 1</span></div>
+    <div class="brand"><span class="brand-mark">◆</span> CS2 Round Review <span class="beta mono">beta</span></div>
     <div class="topbar-right mono" id="topbar-match"></div>
   </header>
 
@@ -20,20 +20,28 @@
   <main id="home" class="home">
     <section class="intro">
       <h1>Find the moments that<br>cost you the round.</h1>
-      <p>Drop in a CS2 demo from FACEIT. Every round gets replayed on a 2D map with a live win-probability line, and your biggest negative swings are pulled out and ranked.</p>
+      <p>Drop in your CS2 demos from FACEIT. Every round gets replayed on a 2D map with a live win-probability line. Your costliest mistakes and best plays are ranked, and the more matches you add, the clearer your playstyle and the things to work on next game become.</p>
     </section>
 
     <section class="upload-card">
       <div class="seg mono" role="radiogroup" aria-label="Match type">
         <button type="button" role="radio" aria-checked="true" data-tag="pug">PUG</button>
         <button type="button" role="radio" aria-checked="false" data-tag="official">Official / LAN</button>
+        <button type="button" role="radio" aria-checked="false" data-tag="ref" title="Pro or other players' demos: used as a benchmark, never counted as your games">Pro / reference</button>
       </div>
       <label class="drop" id="drop">
-        <input type="file" id="file" accept=".dem,.zst,.gz,.bz2" hidden>
+        <input type="file" id="file" accept=".dem,.zst,.gz,.bz2" multiple hidden>
         <span class="drop-icon">⤓</span>
-        <span class="drop-title">Drop a demo here, or click to choose</span>
+        <span class="drop-title">Drop demos or a whole folder here</span>
         <span class="drop-sub mono">.dem · .dem.zst · .dem.gz &nbsp;—&nbsp; stays on your computer, analyzed in this browser</span>
       </label>
+      <div class="drop-alt mono">
+        <button type="button" class="link" id="pick-files">Choose files</button> ·
+        <button type="button" class="link" id="pick-folder">Choose a folder</button>
+        <input type="file" id="folder" webkitdirectory multiple hidden>
+        <span class="muted">One demo opens right away. Several are analyzed one by one and saved to your history.</span>
+      </div>
+      <ol class="queue mono" id="queue" hidden></ol>
       <ol class="progress mono" id="progress" hidden></ol>
       <p class="error" id="error" hidden></p>
     </section>
@@ -45,11 +53,31 @@
           <button type="button" aria-pressed="true" data-f="all">All</button>
           <button type="button" aria-pressed="false" data-f="pug">PUG</button>
           <button type="button" aria-pressed="false" data-f="official">Official</button>
+          <button type="button" aria-pressed="false" data-f="ref">Pro</button>
         </div>
       </div>
       <div class="lib-stats" id="lib-stats"></div>
+      <section class="style-wrap" id="style-wrap" hidden>
+        <div class="style-head">
+          <h2 class="mono">/ your playstyle</h2>
+          <span class="mono muted" id="style-sub"></span>
+        </div>
+        <div class="style-grid" id="style-grid"></div>
+        <div class="todo-wrap">
+          <div>
+            <h3 class="mono">Work on next game</h3>
+            <ol class="todo" id="style-fix"></ol>
+          </div>
+          <div>
+            <h3 class="mono">Keep doing</h3>
+            <ul class="keep" id="style-keep"></ul>
+            <h3 class="mono">Where you die most</h3>
+            <ul class="keep" id="style-places"></ul>
+          </div>
+        </div>
+      </section>
       <ul class="lib-list" id="library"></ul>
-      <p class="lib-note mono">Saved in this browser only. Re-open a match by dropping its demo again.</p>
+      <p class="lib-note mono">Saved in this browser only. Re-open a match by dropping its demo again. <button type="button" class="link" id="export">Export dataset (.json)</button></p>
       <p class="lib-note mono">Demo parsing by <a href="https://github.com/LaihoE/demoparser" target="_blank" rel="noopener">demoparser2</a> (MIT) · decompression by fzstd (MIT).</p>
     </section>
   </main>
@@ -75,7 +103,11 @@
         <div class="replay-top mono">
           <span id="round-label">Round 1</span>
           <span id="alive-label"></span>
-          <span id="clock">1:55</span>
+          <span class="replay-tools">
+            <button type="button" class="tiny" id="level" hidden>Upper</button>
+            <button type="button" class="tiny" id="callouts" aria-pressed="true">Callouts</button>
+            <span id="clock">1:55</span>
+          </span>
         </div>
         <canvas id="map" width="900" height="900"></canvas>
         <div class="controls">
@@ -93,7 +125,10 @@
 
       <aside class="side">
         <div class="panel">
-          <h3 class="mono">/ your costliest moments</h3>
+          <div class="tabs mono" role="tablist">
+            <button type="button" role="tab" aria-selected="true" data-tab="mistakes">Costly moments</button>
+            <button type="button" role="tab" aria-selected="false" data-tab="highlights">Highlights</button>
+          </div>
           <ol class="mistakes" id="mistakes"></ol>
         </div>
         <div class="panel">
@@ -103,10 +138,21 @@
       </aside>
     </section>
 
+    <section class="panel next-game" id="next-game" hidden>
+      <h3 class="mono">/ take into your next game <span class="muted" id="next-sub"></span></h3>
+      <div class="todo-wrap">
+        <ol class="todo" id="next-fix"></ol>
+        <div>
+          <h3 class="mono">Keep doing</h3>
+          <ul class="keep" id="next-keep"></ul>
+        </div>
+      </div>
+    </section>
+
     <section class="panel table-wrap">
       <h3 class="mono">/ scoreboard · win probability added</h3>
       <table class="board mono" id="board"></table>
-      <p class="model-note">Win probability uses a hand-tuned baseline model (players alive, equipment, bomb, time). It's a solid first read, not gospel; phase 2 trains it on real matches.</p>
+      <p class="model-note">Win probability uses a hand-tuned baseline model (players alive, equipment, bomb, time). It's a solid first read, not gospel; the next step trains it on real matches. Map drawn from the game's navigation mesh.</p>
     </section>
 
     <div class="match-foot">
@@ -115,6 +161,7 @@
   </main>
 
   <script src="analysis.js"></script>
+  <script src="insights.js"></script>
   <script src="app.js"></script>
   <script src="../../back.js" defer></script>
 </body>

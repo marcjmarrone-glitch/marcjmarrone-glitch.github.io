@@ -156,3 +156,56 @@ button, select, input { font: inherit; color: inherit; }
 .match-foot { display: flex; justify-content: center; }
 .ghost { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 10px 16px; border-radius: 999px; cursor: pointer; }
 .ghost:hover { color: var(--ink); border-color: var(--muted); }
+
+/* ── Bulk upload */
+.muted { color: var(--muted); }
+.link { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-size: inherit; }
+.drop-alt { font-size: .74rem; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.drop-alt .muted { flex-basis: 100%; }
+.queue { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .75rem; max-height: 320px; overflow: auto; }
+.queue li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 7px 12px; border-radius: 8px; background: var(--bg3); color: var(--muted); }
+.queue li.q-head { background: none; padding: 2px 4px; display: flex; justify-content: space-between; }
+.queue .q-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue li.parsing { color: var(--ink); }
+.queue li.parsing .q-state::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--accent); animation: blink 1s infinite; }
+.queue li.done { color: var(--ink); } .queue li.done .q-state::before { content: "✓ "; color: var(--accent); }
+.queue li.error .q-state { color: #ffb3ad; white-space: normal; }
+
+/* ── Playstyle */
+.style-wrap { margin: 8px 0 22px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, rgba(215,255,61,.035), transparent 40%), var(--bg2); }
+.style-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 14px; }
+.style-head h2 { margin: 0; font-size: .8rem; font-weight: 400; color: var(--accent); }
+.style-head .muted { font-size: .68rem; }
+.style-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 18px; }
+.style-stat { background: var(--bg3); padding: 11px 12px; }
+.style-stat .v { font-size: 1.25rem; }
+.bench { font-family: var(--mono); font-size: .62rem; color: var(--muted); margin-top: 2px; }
+.bench.good::before { content: "▲ "; color: var(--good); } .bench.bad::before { content: "▼ "; color: var(--bad); }
+.todo-wrap { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 760px) { .todo-wrap { grid-template-columns: 1fr; } }
+.todo-wrap h3 { margin: 0 0 8px; font-size: .72rem; font-weight: 400; color: var(--muted); border: 0; padding: 0; }
+.todo-wrap div > h3 + ul + h3 { margin-top: 16px; }
+.todo { list-style: none; counter-reset: todo; margin: 0; padding: 0; display: grid; gap: 8px; }
+.todo li { counter-increment: todo; position: relative; padding: 12px 14px 12px 46px; border-radius: 12px; background: var(--bg3); border: 1px solid var(--line); }
+.todo li::before { content: counter(todo); position: absolute; left: 14px; top: 11px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 600 .75rem/22px var(--mono); text-align: center; }
+.todo b { font-size: .98rem; }
+.todo p { margin: 3px 0 0; font-size: .84rem; }
+.todo .saw { color: var(--muted); }
+.todo .do::before { content: "Next game → "; font-family: var(--mono); font-size: .7rem; color: var(--accent); }
+.keep { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: .84rem; color: var(--muted); }
+.keep b { color: var(--good); font-weight: 600; }
+.keep b.t { color: var(--t); } .keep b.ct { color: var(--ct); }
+.next-game h3 .muted { font-size: .7rem; }
+
+/* ── Match view additions */
+.replay-tools { display: flex; align-items: center; gap: 8px; }
+.tiny { border: 1px solid var(--line); background: var(--bg3); color: var(--muted); border-radius: 999px; padding: 2px 9px; font-size: .68rem; cursor: pointer; }
+.tiny[aria-pressed="true"] { color: var(--ink); border-color: #4a4940; }
+.tabs { display: flex; gap: 4px; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: none; color: var(--muted); padding: 4px 10px; border-radius: 999px; cursor: pointer; font-size: .76rem; }
+.tabs button[aria-selected="true"] { background: var(--bg3); color: var(--ink); }
+.tabs button[data-tab="highlights"][aria-selected="true"] { color: var(--good); }
+.mistakes.good li:hover { border-color: var(--good); }
+.mistakes.good .m-swing { color: var(--good); }
+.mistakes.good .chip { background: rgba(123,224,123,.12); color: #b8f0b8; }
+.rchip .flag.good { right: auto; left: -4px; background: var(--good); }

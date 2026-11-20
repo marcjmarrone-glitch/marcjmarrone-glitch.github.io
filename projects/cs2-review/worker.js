@@ -21,6 +21,7 @@ async function decompress(bytes) {
   return b;
 }
 
+const NADES = { smokegrenade_detonate: "smoke", flashbang_detonate: "flash", hegrenade_detonate: "he", inferno_startburn: "molotov" };
 const side = (n) => (n === 2 ? "T" : n === 3 ? "CT" : null);
 
 onmessage = async (e) => {
@@ -42,7 +43,8 @@ onmessage = async (e) => {
     const header = norm(P.parseHeader(bytes));
     const evs = norm(P.parseEvents(bytes,
       ["round_freeze_end", "round_officially_ended", "player_death", "bomb_planted", "bomb_defused",
-        "bomb_exploded", "begin_new_match", "cs_win_panel_match", "round_prestart"],
+        "bomb_exploded", "begin_new_match", "cs_win_panel_match", "round_prestart", "player_hurt", "player_blind",
+        "smokegrenade_detonate", "flashbang_detonate", "hegrenade_detonate", "inferno_startburn"],
       ["X", "Y", "team_num"],
       ["is_warmup_period", "total_rounds_played", "round_win_status", "round_win_reason"]));
     evs.sort((a, b) => a.tick - b.tick);
@@ -74,7 +76,7 @@ onmessage = async (e) => {
       rounds.push({
         n, freezeEndTick: fe, officialEndTick: Math.min(officialEnd, next),
         winner: r ? side(r.status) : null, reason: r ? r.reason : null,
-        events: [], plantTick: null, plantPos: null,
+        events: [], hurts: [], nades: [], blinds: [], plantTick: null, plantPos: null,
       });
     }
     if (!rounds.length) throw new Error("Couldn't find any rounds in this demo.");
@@ -100,6 +102,12 @@ onmessage = async (e) => {
         r.events.push({ type: "defuse", tick: x.tick, player: x.user_steamid, x: x.user_X, y: x.user_Y });
       } else if (x.event_name === "bomb_exploded") {
         r.events.push({ type: "explode", tick: x.tick });
+      } else if (x.event_name === "player_hurt") {
+        if (x.attacker_steamid && x.attacker_steamid !== x.user_steamid) r.hurts.push({ tick: x.tick, attacker: x.attacker_steamid, victim: x.user_steamid, dmg: x.dmg_health || 0, weapon: x.weapon || "" });
+      } else if (x.event_name === "player_blind") {
+        if (x.attacker_steamid) r.blinds.push({ tick: x.tick, attacker: x.attacker_steamid, victim: x.user_steamid, dur: Math.round((x.blind_duration || 0) * 10) / 10 });
+      } else if (NADES[x.event_name]) {
+        r.nades.push({ type: NADES[x.event_name], tick: x.tick, player: x.user_steamid, x: Math.round(x.x ?? x.user_X ?? 0), y: Math.round(x.y ?? x.user_Y ?? 0) });
       }
     }
 
@@ -109,7 +117,7 @@ onmessage = async (e) => {
     for (const r of rounds) for (let t = r.freezeEndTick - TICKRATE * 2; t <= r.officialEndTick; t += FRAME_STEP) wanted.push(t);
     const deathTicks = rounds.flatMap((r) => r.events.filter((x) => x.type === "kill").map((x) => x.tick - 1));
     const tk = norm(P.parseTicks(bytes,
-      ["X", "Y", "Z", "yaw", "health", "is_alive", "team_num", "current_equip_value", "has_defuser", "active_weapon_name", "team_clan_name", "balance"],
+      ["X", "Y", "Z", "yaw", "health", "is_alive", "team_num", "current_equip_value", "has_defuser", "active_weapon_name", "team_clan_name", "balance", "last_place_name"],
       wanted, null, true));
     const inv = norm(P.parseTicks(bytes, ["inventory", "team_num"], deathTicks, null, true));
     bytes = null;
@@ -118,6 +126,13 @@ onmessage = async (e) => {
     step("build", "active");
     const players = {};
     const frameMap = new Map();
+    const places = [], placeIdx = new Map();
+    const placeOf = (name) => {
+      if (!name) return -1;
+      let i = placeIdx.get(name);
+      if (i == null) { i = places.length; places.push(name); placeIdx.set(name, i); }
+      return i;
+    };
     const N = tk.tick ? tk.tick.length : 0;
     for (let i = 0; i < N; i++) {
       const team = side(tk.team_num[i]);
@@ -130,6 +145,7 @@ onmessage = async (e) => {
         sid, team, alive: !!tk.is_alive[i], hp: tk.health[i] || 0,
         x: Math.round(tk.X[i]), y: Math.round(tk.Y[i]), z: Math.round(tk.Z[i]), yaw: Math.round(tk.yaw[i]),
         equip: tk.current_equip_value[i] || 0, kit: !!tk.has_defuser[i], wep: tk.active_weapon_name[i] || "", money: tk.balance[i] || 0,
+        pl: placeOf(tk.last_place_name[i]),
       });
     }
     const frames = [...frameMap.values()].sort((a, b) => a.tick - b.tick);
@@ -162,7 +178,9 @@ onmessage = async (e) => {
       map: header.map_name || "unknown",
       server: header.server_name || "",
       tickrate: TICKRATE,
+      version: 2,
       players: Object.values(players),
+      places,
       clans, score,
       rounds,
       parseSeconds: Math.round((performance.now() - t0) / 100) / 10,
