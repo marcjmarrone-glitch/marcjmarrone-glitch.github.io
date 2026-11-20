@@ -64,14 +64,130 @@
     };
   }
 
-  /** Add positioning tags to the mistakes list from analysis.js. */
-  function enrichMistakes(match, mistakes) {
+  const meters = (u) => Math.max(1, Math.round(u / 52));
+  const list = (xs) => xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
+  const prettyNade = (w) => w.replace(/ Grenade$/i, "").replace(/^High Explosive$/i, "HE").replace(/Incendiary/i, "incendiary").replace(/Molotov/i, "molotov").replace(/Flashbang/i, "flash").replace(/^Smoke$/i, "smoke").replace(/Decoy/i, "decoy");
+
+  /**
+   * Explain one death from the data: the situation, what actually happened in the last
+   * seconds, and what to try next time. Every line comes from something measured.
+   */
+  function explainDeath(match, ri, k, analyses) {
+    const round = match.rounds[ri], tr = match.tickrate;
+    const sid = k.victim, team = round.teams[sid];
+    const nm = (x) => (match.players.find((p) => p.sid === x) || {}).name || "?";
+    const st = k.state || A.stateAt(round, k.tick, tr, false);
+    const my = team === "T" ? st.tAlive : st.ctAlive, their = team === "T" ? st.ctAlive : st.tAlive;
+    const kills = round.events.filter((e) => e.type === "kill");
+    const c = deathContext(match, round, k, kills);
+    const f = frameAt(round, k.tick - 1);
+    const alive = aliveBefore(round, k.tick);
+    const enemies = alive.filter((x) => round.teams[x] && round.teams[x] !== team);
+    const pos = (x) => pOf(f, x);
+    const me = pos(sid);
+    const happened = [], tryNext = [];
+    const ctKit = alive.some((x) => round.teams[x] === "CT" && pos(x) && pos(x).kit);
+
+    // the situation
+    let situation = kills[0] === k || (kills[0] && kills[0].tick === k.tick && kills[0].victim === k.victim) ? "Opening duel"
+      : my === 1 ? `Last alive, 1v${their}` : my > their ? `${my}v${their}, your team was ahead` : `${my}v${their}`;
+    if (st.planted) situation += `, bomb down with ${Math.round(st.bombLeft)}s left` + (ctKit ? " (CT has a kit)" : " (no CT kit)");
+    else if (st.secondsLeft < 30) situation += `, ${Math.max(0, Math.round(st.secondsLeft))}s on the clock`;
+
+    // who shot you in the last 3 seconds, and were they together
+    const hits = round.hurts.filter((h) => h.victim === sid && h.tick <= k.tick && h.tick >= k.tick - 3 * tr);
+    const shooters = [...new Set(hits.map((h) => h.attacker).concat(k.attacker ? [k.attacker] : []))].filter((x) => round.teams[x] && round.teams[x] !== team);
+    let pair = null;
+    if (me) for (let i = 0; i < enemies.length; i++) for (let j = i + 1; j < enemies.length; j++) {
+      const a = pos(enemies[i]), b = pos(enemies[j]);
+      if (!a || !b) continue;
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < 400 && Math.hypot(a.x - me.x, a.y - me.y) < 2000 && (!pair || d < pair.d)) pair = { a: enemies[i], b: enemies[j], d };
+    }
+    if (shooters.length >= 2) {
+      const ts = hits.map((h) => h.tick).concat([k.tick]);
+      happened.push(`${list(shooters.map(nm))} ${shooters.length === 2 ? "both" : "all"} hit you within ${((Math.max(...ts) - Math.min(...ts)) / tr).toFixed(1)}s, so you were fighting ${shooters.length} at once.`);
+    } else if (pair && their >= 2) {
+      happened.push(`${nm(pair.a)} and ${nm(pair.b)} were together (${meters(pair.d)}m apart), so whoever you didn't shoot could trade straight away.`);
+    }
+    if ((shooters.length >= 2 || pair) && their >= 2) tryNext.push(my === 1
+      ? "In a 1v2 or worse, only take fights where one of them can see you. After each shot, move so the other has to find you, or wait for them to split up."
+      : "Don't duel two players who can see you at once. Back off and re-peek one angle, or wait for a teammate to fight alongside you.");
+
+    // damage you did right before dying
+    const dealt = {};
+    for (const h of round.hurts) if (h.attacker === sid && h.tick >= k.tick - 5 * tr && h.tick <= k.tick && round.teams[h.victim] !== team) dealt[h.victim] = (dealt[h.victim] || 0) + h.dmg;
+    const dealtTxt = Object.entries(dealt).map(([v, d]) => { const p = pOf(frameAt(round, k.tick), v); const hp = p ? Math.max(0, p.hp) : null; return `${nm(v)} for ${d}${hp != null && hp > 0 && enemies.includes(v) ? ` (left on ${hp})` : ""}`; });
+    if (dealtTxt.length) happened.push(`You hit ${list(dealtTxt)} before you went down.`);
+    else if (k.attacker) happened.push(`You didn't land any damage. ${nm(k.attacker)} got the first shots in.`);
+
+    // flashed?
+    const blind = round.blinds.find((b) => b.victim === sid && round.teams[b.attacker] !== team && b.tick <= k.tick && b.tick + b.dur * tr >= k.tick);
+    if (blind) { happened.push(`You were flashed by ${nm(blind.attacker)} (${blind.dur}s).`); tryNext.push("When you hear a flash pop, turn away or fall back out of the angle instead of holding it blind."); }
+
+    // movement
+    if (c.moving) { happened.push(`You were moving at ${c.speed} u/s when you died.`); if (!blind) tryNext.push("You were caught on the move. Let them walk into your crosshair, or stop fully (counter-strafe) before you shoot."); }
+    else if (c.speed != null && c.speed < 60) happened.push("You were holding still, which is good.");
+
+    // trade
+    if (!c.traded && my >= 2) {
+      if (c.isolated) { happened.push(`Your nearest teammate was ${meters(c.mateDist)}m away, so nobody could trade you.`); tryNext.push("Play within a few seconds of a teammate so your death costs them a player too."); }
+      else if (c.mateDist != null) happened.push(`A teammate was only ${meters(c.mateDist)}m away but didn't trade you. That one's partly on them.`);
+    }
+
+    // the clock
+    if (st.planted) {
+      const defuse = ctKit ? 5 : 10, slack = Math.round(st.bombLeft - defuse);
+      if (team === "T") {
+        happened.push(`With ${Math.round(st.bombLeft)}s on the bomb and ${ctKit ? "a kit" : "no kit"}, the CTs had to start defusing within ${Math.max(0, slack)}s.`);
+        if (slack > 3) tryNext.push("The clock was on your side. You didn't need to win a duel, because they had to come to the bomb. Stay hidden from where they come in and swing when the defuse starts: the defuser can't shoot back.");
+      } else {
+        const myKit = me && me.kit;
+        happened.push(`${Math.round(st.bombLeft)}s on the bomb, and ${myKit ? "your kit meant a 5s defuse" : "without a kit you needed 10s"}, which left about ${Math.max(0, Math.round(st.bombLeft - (myKit ? 5 : 10)))}s to clear the site.`);
+        if (st.bombLeft - (myKit ? 5 : 10) > 8 && c.moving) tryNext.push("There was time to clear one angle at a time. Slow down, use utility on their likely spots, and only commit to the defuse when it's safe or the clock forces it.");
+        if (!myKit && their >= 1) tryNext.push("Buy a defuse kit when you can. It halves the defuse and changes every retake.");
+      }
+    } else if (team === "T" && st.secondsLeft < 25 && their >= 1) {
+      happened.push(`Only ${Math.max(0, Math.round(st.secondsLeft))}s left and no plant, so you were forced to take fights.`);
+      tryNext.push("Commit to a site earlier so you aren't taking forced fights against the clock.");
+    }
+
+    // utility
+    const left = (k.inv || []).filter((w) => UTIL.test(w)).map(prettyNade).map((w) => (/^[aeiouh]/i.test(w) && !/^he$/i.test(w) ? "an " : /^he$/i.test(w) ? "an " : "a ") + w);
+    if (left.length) {
+      happened.push(`You still had ${list(left)} unused.`);
+      tryNext.push(`Use it before the fight: ${left.some((w) => /flash/i.test(w)) ? "pop-flash your own peek" : left.some((w) => /molotov|incendiary/i.test(w)) ? "molly the spot they're holding or the bomb" : left.some((w) => /smoke/i.test(w)) ? "smoke off one of their angles" : "throw it where they're holding"}.`);
+    } else {
+      const fire = round.nades.filter((n) => n.player === sid && n.type === "molotov" && n.tick < k.tick && round.plantPos && round.plantTick && n.tick > round.plantTick
+        && Math.hypot(n.x - round.plantPos[0], n.y - round.plantPos[1]) < 350).pop();
+      if (fire && team === "T") {
+        const defuse = ctKit ? 5 : 10;
+        const slackThen = 40 - (fire.tick - round.plantTick) / tr - defuse;
+        if (slackThen > 7.5) {
+          happened.push(`Your molly on the bomb went down ${((k.tick - fire.tick) / tr).toFixed(0)}s earlier. It lasts about 7s, so it burned out before the CTs actually needed to defuse.`);
+          tryNext.push("Save the molly for the defuse. It wins post-plants when it lands just as they start, or when the clock forces them onto the bomb.");
+        }
+      } else if (my <= their && their >= 1 && !round.nades.some((n) => n.player === sid && n.tick < k.tick && k.tick - n.tick < 20 * tr)) happened.push("You had no grenades to help with this fight.");
+    }
+
+    if (my > their) tryNext.unshift("Your team was ahead, so you didn't need to force anything. Hold an angle with a teammate close by and make them come to you.");
+    if (!tryNext.length && my === 1) tryNext.push("Clutches are mostly lost, so don't stress the result. Look at the timing: hide until they have to come to you, then take one fight at a time.");
+    return { situation, happened, tryNext: [...new Set(tryNext)].slice(0, 3) };
+  }
+
+
+  /** Add positioning tags + a breakdown to the mistakes list from analysis.js. */
+  function enrichMistakes(match, mistakes, analyses) {
     for (const x of mistakes) {
       const r = match.rounds[x.round];
       const k = r.events.find((e) => e.type === "kill" && e.tick === x.tick);
       if (!k) continue;
       const c = deathContext(match, r, k, r.events.filter((e) => e.type === "kill"));
       x.ctx = c;
+      if (analyses) {
+        const sk = analyses[x.round].scored.find((e) => e.type === "kill" && e.tick === x.tick && e.victim === k.victim);
+        x.explain = explainDeath(match, x.round, sk || k, analyses);
+      }
       if (c.isolated && !x.tags.includes("isolated")) x.tags.push(`isolated (${Math.round(c.mateDist / 52)}m from team)`);
       if (c.moving) x.tags.push("caught moving");
       if (c.place) x.place = c.place;
@@ -365,5 +481,5 @@
     };
   }
 
-  root.Insights = { findHighlights, enrichMistakes, styleOf, mergeStyles, rates, actionItems, baselinesFrom, datasetRows, deathContext, DEFAULT_BASE, SCHEMA };
+  root.Insights = { findHighlights, enrichMistakes, explainDeath, styleOf, mergeStyles, rates, actionItems, baselinesFrom, datasetRows, deathContext, DEFAULT_BASE, SCHEMA };
 })(typeof self !== "undefined" ? self : window);

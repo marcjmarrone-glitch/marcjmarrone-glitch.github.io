@@ -19,13 +19,17 @@
    * s = { tAlive, ctAlive, tEquip, ctEquip, planted, secondsLeft, bombLeft, ctKit }
    * returns P(T wins round), 0..1
    */
+  // Each extra player matters more when fewer are left (5v4 ≈ 70%, 2v1 ≈ 80%, 1v2 ≈ 20%).
+  const perPlayer = (s) => 0.75 + 0.15 * (5 - Math.min(5, Math.max(1, Math.min(s.tAlive, s.ctAlive))));
+
   function winProbT(s) {
     if (s.ctAlive === 0) return 1;
     const eq = Math.log((s.tEquip + 800) / (s.ctEquip + 800));
+    const k = perPlayer(s);
 
     if (!s.planted) {
       if (s.tAlive === 0) return 0;
-      let z = -0.1 + 0.75 * (s.tAlive - s.ctAlive) + 0.9 * eq;
+      let z = -0.1 + k * (s.tAlive - s.ctAlive) + 0.9 * eq;
       if (s.secondsLeft < 40) z -= ((40 - s.secondsLeft) / 40) * 2.6;   // Ts running out of time
       if (s.secondsLeft <= 5) z -= 3;
       return clamp(sigmoid(z), 0.005, 0.995);
@@ -34,9 +38,10 @@
     const defuse = s.ctKit ? 5 : 10;
     if (s.bombLeft <= defuse - 0.5) return 0.99;                        // too late to defuse
     if (s.tAlive === 0) return s.bombLeft < defuse + 4 ? 0.35 : 0.04;   // CTs just need to defuse
-    let z = 0.9 + 0.65 * (s.tAlive - s.ctAlive) + 0.6 * eq;
-    z += ((BOMB_TIME - s.bombLeft) / BOMB_TIME) * 1.6;                 // clock favors T
-    if (!s.ctKit) z += 0.4;
+    // slack = seconds CTs have before they must start defusing; the less, the better for T
+    const slack = s.bombLeft - defuse;
+    let z = 0.75 + k * (s.tAlive - s.ctAlive) + 0.6 * eq;
+    z += 1.2 * (1 - clamp(slack / 25, 0, 1)) - 0.3;
     return clamp(sigmoid(z), 0.005, 0.995);
   }
 
@@ -134,13 +139,16 @@
         if (k.thrusmoke) tags.push("killed through smoke");
         if (team === "CT" && k.state.planted) tags.push("post-plant retake");
         const lostRound = !!round.winner && round.winner !== team;
-        out.push({
+        // How much of this is on you: dying last in a 1vN is usually the odds, not a blunder;
+        // dying while your team is ahead is usually avoidable.
+        const avoid = my === 1 && their >= 2 ? 0.45 : my === 1 ? 0.7 : my < their ? 0.7 : my > their ? 1.25 : 1;
+        out.push({ rank: swing * avoid * (lostRound ? 1.15 : 1), clutch: my === 1,
           round: ri, tick: k.tick, swing, winBefore, tags, lostRound, team,
           situation: `${my}v${their}`, weapon: k.weapon, attacker: k.attacker,
         });
       });
     });
-    out.sort((a, b) => a.swing * (a.lostRound ? 1.15 : 1) - b.swing * (b.lostRound ? 1.15 : 1));
+    out.sort((a, b) => a.rank - b.rank);
     return out;
   }
 

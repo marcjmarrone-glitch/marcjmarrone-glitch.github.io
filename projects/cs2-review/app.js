@@ -61,7 +61,7 @@
   /** Parse one demo in a worker. onStep(name, state, extra) reports progress. */
   function parseFile(file, onStep) {
     return new Promise((resolve, reject) => {
-      const w = new Worker("worker.js");
+      const w = new Worker("worker.js?v=3");
       w.onmessage = (e) => {
         const m = e.data;
         if (m.type === "progress") onStep(m.name, m.state, m.extra);
@@ -165,7 +165,7 @@
       scoreText: match.clans.map((c) => match.score[c]).join(" : "),
     };
     if (me) {
-      const mistakes = Insights.enrichMistakes(match, Analysis.findMistakes(match, analyses, me));
+      const mistakes = Insights.enrichMistakes(match, Analysis.findMistakes(match, analyses, me), analyses);
       const hl = Insights.findHighlights(match, analyses, me);
       rec.worst = mistakes.slice(0, 5).map((x) => ({ round: x.round + 1, swing: x.swing, tags: x.tags }));
       rec.best = hl.slice(0, 5).map((x) => ({ round: x.round + 1, title: x.title, swing: x.swing, tags: x.tags }));
@@ -346,7 +346,7 @@
 
   function refreshMe(save) {
     const m = S.match;
-    S.mistakes = S.me ? Insights.enrichMistakes(m, Analysis.findMistakes(m, S.analyses, S.me)) : [];
+    S.mistakes = S.me ? Insights.enrichMistakes(m, Analysis.findMistakes(m, S.analyses, S.me), S.analyses) : [];
     S.highlights = S.me ? Insights.findHighlights(m, S.analyses, S.me) : [];
     const myClan = S.me && (m.players.find((p) => p.sid === S.me) || {}).clan;
     const [a, b] = myClan ? [myClan, m.clans.find((c) => c !== myClan)] : m.clans;
@@ -405,16 +405,29 @@
     if (S.sideTab === "highlights") return renderHighlights(ol);
     const top = S.mistakes.filter((x) => x.swing < -0.04).slice(0, 10);
     if (!top.length) { ol.replaceChildren(el("p", "empty-note", "No costly deaths found. Clean game.")); return; }
-    ol.replaceChildren(...top.map((x) => {
+    ol.replaceChildren(...top.map((x, i) => {
       const li = el("li");
       const r = S.match.rounds[x.round];
       const tl = (x.tick - r.freezeEndTick) / S.match.tickrate;
       const head = el("div", "m-top");
       head.append(el("span", "", `R${x.round + 1} · ${clockText(tl)} · ${x.team}${x.place ? " · " + x.place : ""}${x.lostRound ? " · round lost" : ""}`), el("span", "m-swing", signed(x.swing)));
-      const desc = el("div", "m-desc", `Died in a ${x.situation} to ${nameOf(x.attacker)} (${prettyWeapon(x.weapon)}). Win chance ${pct(x.winBefore)} → ${pct(Math.max(0, x.winBefore + x.swing))}.`);
+      const ex = x.explain;
+      const desc = el("div", "m-desc");
+      desc.append(el("b", "", (ex ? ex.situation : `Died in a ${x.situation}`) + ". "),
+        document.createTextNode(`Killed by ${nameOf(x.attacker)} (${prettyWeapon(x.weapon)}). Win chance ${pct(x.winBefore)} → ${pct(Math.max(0, x.winBefore + x.swing))}.`));
       const chips = el("div", "chips");
+      if (x.clutch && x.lostRound) chips.append(el("span", "chip neutral", "lost clutch: mostly the odds"));
       x.tags.forEach((t) => chips.append(el("span", "chip", t)));
       li.append(head, desc, chips);
+      if (ex && (ex.happened.length || ex.tryNext.length)) {
+        const det = el("details", "why");
+        if (i < 3) det.open = true;
+        det.append(el("summary", "mono", "Breakdown"));
+        if (ex.happened.length) { det.append(el("div", "why-h mono", "What happened")); const ul = el("ul"); ex.happened.forEach((t) => ul.append(el("li", "", t))); det.append(ul); }
+        if (ex.tryNext.length) { det.append(el("div", "why-h mono try", "Try next time")); const ul = el("ul", "try"); ex.tryNext.forEach((t) => ul.append(el("li", "", t))); det.append(ul); }
+        det.onclick = (e) => e.stopPropagation();
+        li.append(det);
+      }
       li.onclick = () => { selectRound(x.round, x.tick - S.match.tickrate * 5); play(true); };
       return li;
     }));

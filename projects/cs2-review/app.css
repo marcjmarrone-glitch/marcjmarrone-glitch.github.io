@@ -209,3 +209,12 @@ button, select, input { font: inherit; color: inherit; }
 .mistakes.good .m-swing { color: var(--good); }
 .mistakes.good .chip { background: rgba(123,224,123,.12); color: #b8f0b8; }
 .rchip .flag.good { right: auto; left: -4px; background: var(--good); }
+
+/* ── Death breakdown */
+.why { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; cursor: default; }
+.why summary { font-size: .68rem; color: var(--muted); cursor: pointer; list-style: none; }
+.why summary::before { content: "▸ "; } .why[open] summary::before { content: "▾ "; }
+.why-h { font-size: .62rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 8px 0 3px; }
+.why-h.try { color: var(--accent); }
+.why ul { margin: 0; padding-left: 16px; font-size: .82rem; display: grid; gap: 3px; }
+.why ul.try li::marker { color: var(--accent); }
